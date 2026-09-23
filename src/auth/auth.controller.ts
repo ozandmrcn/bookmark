@@ -1,6 +1,16 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthService } from './auth.service.js';
 import { LoginDTO, SignupDTO } from './dto/auth.dto.js';
+import { AuthGuard } from '@nestjs/passport';
+import express from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -24,9 +34,14 @@ export class AuthController {
     return this.authService.logout();
   }
 
+  @UseGuards(AuthGuard('jwt-refresh'))
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
-  refresh() {
-    return this.authService.refresh();
+  refresh(@Req() req: express.Request) {
+    const user = req.user as { id: number; email: string };
+
+    this.authService.refresh();
+
+    return user;
   }
 }
