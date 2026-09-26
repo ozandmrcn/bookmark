@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { SignupDTO, LoginDTO } from './dto/auth.dto.js';
 import * as argon from 'argon2';
@@ -86,8 +87,20 @@ export class AuthService {
     return { message: 'User Logged Out' };
   }
 
-  async refresh() {
-    return { message: 'Token Refreshed' };
+  async refresh(id: number, email: string) {
+    const user = await this.prismaService.user.findUnique({
+      where: {
+        id,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const accessToken = await this.signAccessToken(id, email);
+
+    return { message: 'Token Refreshed', accessToken };
   }
 
   async signAccessToken(userId: number, email: string): Promise<string> {

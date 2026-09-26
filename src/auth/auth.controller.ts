@@ -5,6 +5,7 @@ import {
   HttpStatus,
   Post,
   Req,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service.js';
@@ -37,11 +38,13 @@ export class AuthController {
   @UseGuards(AuthGuard('jwt-refresh'))
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
-  refresh(@Req() req: express.Request) {
+  async refresh(@Req() req: express.Request) {
     const user = req.user as { id: number; email: string };
 
-    this.authService.refresh();
+    if (!user.id || !user.email) {
+      throw new UnauthorizedException('User not found');
+    }
 
-    return user;
+    return await this.authService.refresh(user.id, user.email);
   }
 }
