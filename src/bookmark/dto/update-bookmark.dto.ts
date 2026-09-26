@@ -6,6 +6,10 @@ import {
   MinLength,
 } from 'class-validator';
 
+/**
+ * Update-bookmark payload: every field is optional so clients can send
+ * only the properties they actually want to change.
+ */
 export class UpdateBookmarkDto {
   @IsOptional()
   @IsString()
@@ -20,6 +24,6 @@ export class UpdateBookmarkDto {
   description?: string;
 
   @IsOptional()
-  @IsUrl()
+  @IsUrl() // must look like https://...
   link?: string;
 }

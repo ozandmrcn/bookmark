@@ -7,7 +7,12 @@ import { JWTAccessStrategy } from './strategy/jwt-access.strategy.js';
 import { JWTRefreshStrategy } from './strategy/jwt-refresh.strategy.js';
 
 @Module({
-  imports: [JwtModule.register({}), PassportModule.register({})],
+  imports: [
+    JwtModule.register({}), // provides the JWT signing/verification utilities
+    PassportModule.register({}), // enables the Passport authentication guards
+  ],
+  // The strategies must be registered as providers so Passport learns the
+  // "jwt-access" and "jwt-refresh" strategy names used by AuthGuard.
   providers: [AuthService, JWTAccessStrategy, JWTRefreshStrategy],
   controllers: [AuthController],
 })

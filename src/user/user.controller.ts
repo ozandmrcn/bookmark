@@ -10,12 +10,14 @@ import { EditUserDto } from './dto/edit-user.dto.js';
 export class UserController {
   constructor(private userService: UserService) {}
 
+  /** GET /user/profile -> return the authenticated user (fetched by the JWT strategy). */
   @UseGuards(AuthGuard('jwt-access'))
   @Get('profile')
   getProfile(@User() user: UserType) {
     return user;
   }
 
+  /** PATCH /user/update -> partially update the authenticated user's profile. */
   @UseGuards(AuthGuard('jwt-access'))
   @Patch('update')
   async updateUser(@User('id') id: number, @Body() body: EditUserDto) {

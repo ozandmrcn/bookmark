@@ -18,6 +18,12 @@ lerna-debug.log*
 # OS
 .DS_Store
 
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+*.swp
+
 # Tests
 /coverage
 /.nyc_output
@@ -40,10 +46,8 @@ lerna-debug.log*
 
 # dotenv environment variable files
 .env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
+.env*.local
+!.env.example
 
 # temp directory
 .temp
@@ -61,3 +65,11 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 # AI editor folders
 .claude/
 .windsurf/
+
+# Tool caches
+.oxlint_cache/
+.cache/
+
+# Packaged archives (local npm pack outputs)
+*.tgz
+*.tar.gz

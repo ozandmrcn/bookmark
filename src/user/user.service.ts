@@ -6,6 +6,10 @@ import { EditUserDto } from './dto/edit-user.dto.js';
 export class UserService {
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * Updates the user's editable fields (firstName, lastName, email).
+   * The password 'hash' column is stripped before returning the user.
+   */
   async updateUser(id: number, body: EditUserDto) {
     const user = await this.prisma.user.update({
       where: {
@@ -14,6 +18,7 @@ export class UserService {
       data: body,
     });
 
+    // Never expose the password hash.
     const { hash, ...rest } = user;
 
     return rest;

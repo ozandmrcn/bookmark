@@ -8,14 +8,16 @@ datasource db {
 }
 
 model User {
-  id          Int      @default(autoincrement()) @id
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  email       String   @unique
-  firstName   String
-  lastName    String
-  hash        String
-  bookmarks   Bookmark[]
+  id                 Int                @default(autoincrement()) @id
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  email              String             @unique
+  firstName          String
+  lastName           String
+  hash               String
+  bookmarks          Bookmark[]
+  refreshTokens      RefreshToken[]
+  blacklistedTokens  BlacklistedToken[]
 
   @@map("users")
 }
@@ -31,5 +33,35 @@ model Bookmark {
   user        User     @relation(fields: [userId], references: [id])
 
   @@map("bookmarks")
+}
+
+/**
+ * Stores the server-side copy of each issued refresh token (hashed).
+ * Deleting a row revokes the token, so logout is a real revocation.
+ */
+model RefreshToken {
+  id        Int      @default(autoincrement()) @id
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
+
+/**
+ * Denylist of revoked access tokens (hashed). A revoked token stays
+ * invalid for the rest of its (short) lifetime.
+ */
+model BlacklistedToken {
+  id        Int      @default(autoincrement()) @id
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("blacklisted_tokens")
 }
 

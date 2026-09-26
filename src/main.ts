@@ -2,15 +2,21 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { ValidationPipe } from '@nestjs/common';
 
+/**
+ * Bootstraps the NestJS application.
+ * - Creates the app from the root AppModule.
+ * - Installs a global ValidationPipe used by every route handler.
+ * - Listens on the PORT environment variable (defaults to 3000).
+ */
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // global validation pipe - validation pipe is applied to every route handler
+  // Global validation pipe - applied to every route handler.
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // strip out any properties that are not in the DTO
-      transform: true, // automatically transform the types of the properties of the DTO
-      forbidNonWhitelisted: true, // throw an error if there are any properties that are not in the DTO
+      whitelist: true, // strip out any properties that are not declared in the DTO
+      transform: true, // transform incoming values into the DTO's declared types
+      forbidNonWhitelisted: true, // reject requests containing unexpected properties
     }),
   );
 

@@ -9,16 +9,15 @@ import { BookmarkModule } from './bookmark/bookmark.module.js';
 
 @Module({
   imports: [
-    // Enable ConfigModule globally (for using .env)
+    // Load and expose .env variables globally across the whole application.
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    // Import AuthModule
-    AuthModule,
-    // Import PrismaModule
-    PrismaModule,
-    UserModule,
-    BookmarkModule,
+    // Feature modules that compose the application.
+    AuthModule, // authentication: signup / login / refresh / logout
+    PrismaModule, // global database access through the Prisma client
+    UserModule, // authenticated user profile operations
+    BookmarkModule, // bookmark CRUD operations
   ],
   controllers: [AppController],
   providers: [AppService],

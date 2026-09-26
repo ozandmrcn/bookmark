@@ -1,0 +1,817 @@
+{
+  "info": {
+    "_postman_id": "8f3a2b1c-4d5e-4f6a-8b9c-0d1e2f3a4b5c",
+    "name": "Bookmark API",
+    "description": "# Bookmark API\n\nOfficial API Collection for the **Bookmark** platform.\n\n---\n\n## Architecture & Endpoints Overview\n\n| Service | Base Route | Key Features |\n|---|---|---|\n| **Auth Service** | `/auth` | Signup, Login, Refresh Token, Logout |\n| **User Service** | `/user` | Get Profile, Update Profile |\n| **Bookmark Service** | `/bookmark` | Create, List, Get by ID, Update, Delete |\n\n---\n\n## Dynamic Environment Variables\n- `baseUrl`: `http://localhost:3000` (NestJS server URL)\n- `token`: Bearer access token (saved by Sign Up / Login / Refresh Token)\n- `refreshToken`: JWT refresh token (sent as Bearer on Refresh Token; rotated on every refresh)\n- `userId`: Authenticated user ID\n- `userEmail`: User email (auto-generated per run)\n- `bookmarkId`: Created/selected bookmark ID\n- `bookmarkTitle`: Created bookmark title\n- `updateTitle`: Updated bookmark title\n\n---\n\n## Run Order\n\nRun the collection top-to-bottom. A unique email is generated on every Sign Up, so the whole collection is re-runnable without duplicate key errors. **Logout intentionally runs last**: it revokes the server-side tokens (deletes the stored refresh token and blacklists the access token), so every request that needs a valid token must run before it. The flow: **Sign Up → Login → Refresh Token → Get Profile → Update Profile → Create Bookmark → Get Bookmarks → Get Bookmark by ID → Update Bookmark → Delete Bookmark → Logout**.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "57587615"
+  },
+  "item": [
+    {
+      "name": "App Service",
+      "description": "Root health-check endpoint.",
+      "item": [
+        {
+          "name": "Hello World",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Hello world message is returned', function () {",
+                  "    pm.expect(pm.response.text()).to.include('Hello World');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                ""
+              ]
+            },
+            "description": "### Hello World\nHealth-check endpoint confirming the API is up and running."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth Service",
+      "description": "User lifecycle: registration, login, and bearer JWT refresh. Logout lives at the end of the collection since it revokes the session.",
+      "item": [
+        {
+          "name": "Sign Up",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Generate a fresh email per run to avoid duplicate-key errors.",
+                  "pm.collectionVariables.set('userEmail', 'user_' + Date.now() + '@bookmark.dev');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created or 200 OK', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var res = pm.response.json();",
+                  "    pm.test('Signup returns user data + tokens', function () {",
+                  "        pm.expect(res.message).to.eql('User Signed Up');",
+                  "        pm.expect(res.user).to.be.an('object');",
+                  "        pm.expect(res.user).to.not.have.property('hash');",
+                  "        pm.expect(res.accessToken).to.be.a('string');",
+                  "        pm.expect(res.refreshToken).to.be.a('string');",
+                  "        pm.expect(res.user.id).to.be.a('number');",
+                  "        pm.expect(res.user.email).to.eql(pm.collectionVariables.get('userEmail'));",
+                  "    });",
+                  "",
+                  "    if (res.accessToken) pm.collectionVariables.set('token', res.accessToken);",
+                  "    if (res.refreshToken) pm.collectionVariables.set('refreshToken', res.refreshToken);",
+                  "    if (res.user && res.user.id) pm.collectionVariables.set('userId', String(res.user.id));",
+                  "} else {",
+                  "    pm.test('Error response is shaped correctly', function () {",
+                  "        var err = pm.response.json();",
+                  "        pm.expect(err).to.have.property('message');",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{userEmail}}\",\n    \"password\": \"password123\",\n    \"firstName\": \"Ozan\",\n    \"lastName\": \"Demircan\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/signup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "signup"
+              ]
+            },
+            "description": "### Register User\nRegisters a new user. Saves `token`, `refreshToken` and `userId`."
+          },
+          "response": []
+        },
+        {
+          "name": "Log In",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    var res = pm.response.json();",
+                  "    pm.test('Login returns user data + tokens', function () {",
+                  "        pm.expect(res.message).to.eql('User Logged In');",
+                  "        pm.expect(res.user.email).to.eql(pm.collectionVariables.get('userEmail'));",
+                  "        pm.expect(res.user).to.not.have.property('hash');",
+                  "        pm.expect(res.accessToken).to.be.a('string');",
+                  "        pm.expect(res.refreshToken).to.be.a('string');",
+                  "    });",
+                  "",
+                  "    if (res.accessToken) pm.collectionVariables.set('token', res.accessToken);",
+                  "    if (res.refreshToken) pm.collectionVariables.set('refreshToken', res.refreshToken);",
+                  "    if (res.user && res.user.id) pm.collectionVariables.set('userId', String(res.user.id));",
+                  "} else {",
+                  "    pm.test('Error response is shaped correctly', function () {",
+                  "        var err = pm.response.json();",
+                  "        pm.expect(err).to.have.property('message');",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{userEmail}}\",\n    \"password\": \"password123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "### User Login\nLogs in with the credentials created during Sign Up. Saves `token`, `refreshToken` and `userId`."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    var res = pm.response.json();",
+                  "    pm.test('Returns a fresh token pair', function () {",
+                  "        pm.expect(res.message).to.eql('Token Refreshed');",
+                  "        pm.expect(res.accessToken).to.be.a('string');",
+                  "        pm.expect(res.refreshToken).to.be.a('string');",
+                  "    });",
+                  "",
+                  "    if (res.accessToken) pm.collectionVariables.set('token', res.accessToken);",
+                  "    if (res.refreshToken) pm.collectionVariables.set('refreshToken', res.refreshToken);",
+                  "} else {",
+                  "    pm.test('401/403 when the refresh token is missing or expired', function () {",
+                  "        pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{refreshToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "### Refresh Token\nObtains a fresh pair of tokens by sending the `refreshToken` as a **Bearer** token (matching the `jwt-refresh` Passport strategy). The refresh token is **rotated**: the old one is revoked server-side and a new one is stored. Saves the new `token` and `refreshToken`."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "User Service",
+      "description": "Authenticated user profile read and update operations. Requires an access token.",
+      "item": [
+        {
+          "name": "Get Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Profile returns id and email from the JWT', function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res).to.be.an('object');",
+                  "    pm.expect(res).to.have.property('id');",
+                  "    pm.expect(res).to.have.property('email');",
+                  "});",
+                  "",
+                  "pm.test('Authenticated userId matches the saved variable', function () {",
+                  "    var res = pm.response.json();",
+                  "    if (pm.collectionVariables.get('userId')) {",
+                  "        pm.expect(String(res.id)).to.eql(pm.collectionVariables.get('userId'));",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/user/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "user",
+                "profile"
+              ]
+            },
+            "description": "### Get Profile\nFetches the authenticated user's identity (`id` + `email`) from the JWT access token. Requires a valid `token`."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Profile is updated successfully', function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res).to.be.an('object');",
+                  "    pm.expect(res.firstName).to.eql('Ozan');",
+                  "    pm.expect(res.lastName).to.eql('Demircan');",
+                  "    pm.expect(res).to.not.have.property('hash');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"firstName\": \"Ozan\",\n    \"lastName\": \"Demircan\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "user",
+                "update"
+              ]
+            },
+            "description": "### Update Profile\nPartially updates the authenticated user's `firstName`, `lastName` and/or `email`. Requires a valid `token`."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Bookmark Service",
+      "description": "Full CRUD over the authenticated user's bookmarks. Requires an access token.",
+      "item": [
+        {
+          "name": "Create Bookmark",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Unique title per run so later assertions stay consistent.",
+                  "pm.collectionVariables.set('bookmarkTitle', 'My Bookmark ' + Date.now());"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created or 200 OK', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var res = pm.response.json();",
+                  "    pm.test('Bookmark is created with all fields', function () {",
+                  "        pm.expect(res).to.be.an('object');",
+                  "        pm.expect(res.id).to.be.a('number');",
+                  "        pm.expect(res.title).to.eql(pm.collectionVariables.get('bookmarkTitle'));",
+                  "        pm.expect(res.description).to.be.a('string');",
+                  "        pm.expect(res.link).to.eql('https://example.com');",
+                  "        pm.expect(res.userId).to.eql(Number(pm.collectionVariables.get('userId')));",
+                  "    });",
+                  "",
+                  "    pm.collectionVariables.set('bookmarkId', String(res.id));",
+                  "} else {",
+                  "    pm.test('Error response is shaped correctly', function () {",
+                  "        var err = pm.response.json();",
+                  "        pm.expect(err).to.have.property('message');",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"title\": \"{{bookmarkTitle}}\",\n    \"description\": \"A curated collection of links worth reading again, saved for later.\",\n    \"link\": \"https://example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookmark",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "bookmark"
+              ]
+            },
+            "description": "### Create Bookmark\nCreates a bookmark for the authenticated user and saves `bookmarkId`."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Bookmarks",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var res = pm.response.json();",
+                  "",
+                  "pm.test('Returns a non-empty array of bookmarks', function () {",
+                  "    pm.expect(res).to.be.an('array');",
+                  "    pm.expect(res.length).to.be.above(0);",
+                  "});",
+                  "",
+                  "if (Array.isArray(res) && res.length > 0) {",
+                  "    pm.test('Each bookmark has the core fields', function () {",
+                  "        pm.expect(res[0]).to.have.property('id');",
+                  "        pm.expect(res[0]).to.have.property('title');",
+                  "        pm.expect(res[0]).to.have.property('link');",
+                  "        pm.expect(res[0]).to.have.property('userId');",
+                  "    });",
+                  "}",
+                  "",
+                  "pm.test('The created bookmark is present in the list', function () {",
+                  "    var found = res.some(function (b) {",
+                  "        return String(b.id) === pm.collectionVariables.get('bookmarkId');",
+                  "    });",
+                  "    pm.expect(found).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookmark",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "bookmark"
+              ]
+            },
+            "description": "### Get Bookmarks\nLists all bookmarks owned by the authenticated user. Must run after **Create Bookmark**, since an empty list returns 404."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Bookmark by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var res = pm.response.json();",
+                  "pm.test('Returns the requested bookmark', function () {",
+                  "    pm.expect(res).to.be.an('object');",
+                  "    pm.expect(String(res.id)).to.eql(pm.collectionVariables.get('bookmarkId'));",
+                  "    pm.expect(res.title).to.eql(pm.collectionVariables.get('bookmarkTitle'));",
+                  "    pm.expect(res.link).to.eql('https://example.com');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookmark/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "bookmark",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{bookmarkId}}"
+                }
+              ]
+            },
+            "description": "### Get Bookmark by ID\nFetches a single bookmark owned by the authenticated user."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Bookmark",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Unique title so the update assertion is deterministic.",
+                  "pm.collectionVariables.set('updateTitle', 'Updated Bookmark ' + Date.now());"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var res = pm.response.json();",
+                  "pm.test('Bookmark is updated with the new values', function () {",
+                  "    pm.expect(res).to.be.an('object');",
+                  "    pm.expect(String(res.id)).to.eql(pm.collectionVariables.get('bookmarkId'));",
+                  "    pm.expect(res.title).to.eql(pm.collectionVariables.get('updateTitle'));",
+                  "    pm.expect(res.link).to.eql('https://updated.example.com');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"title\": \"{{updateTitle}}\",\n    \"link\": \"https://updated.example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookmark/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "bookmark",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{bookmarkId}}"
+                }
+              ]
+            },
+            "description": "### Update Bookmark\nPartially updates the title, description and/or link of a bookmark. Only the authenticated owner may update it."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Bookmark",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 204 No Content', function () {",
+                  "    pm.expect(pm.response.code).to.eql(204);",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "",
+                  "pm.test('The bookmarkId variable is cleared', function () {",
+                  "    pm.collectionVariables.set('bookmarkId', '');",
+                  "    pm.expect(pm.collectionVariables.get('bookmarkId')).to.eql('');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookmark/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "bookmark",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{bookmarkId}}"
+                }
+              ]
+            },
+            "description": "### Delete Bookmark\nDeletes a bookmark owned by the authenticated user. Returns **204 No Content**."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Logout Service",
+      "description": "Terminates the authenticated session. **Kept last on purpose**: logout revokes the server-side tokens (deletes the stored refresh token and blacklists the access token), so every request that needs a valid token must run before it.",
+      "item": [
+        {
+          "name": "Log Out",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Logout returns a success message', function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.message).to.eql('User Logged Out');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "### Logout\nSigns the authenticated user out. Requires a valid Bearer `token`. Revokes the session server-side: the stored refresh token is deleted and the access token is blacklisted, so no previously issued token can be reused."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "userEmail",
+      "value": ""
+    },
+    {
+      "key": "bookmarkId",
+      "value": ""
+    },
+    {
+      "key": "bookmarkTitle",
+      "value": ""
+    },
+    {
+      "key": "updateTitle",
+      "value": ""
+    }
+  ]
+}

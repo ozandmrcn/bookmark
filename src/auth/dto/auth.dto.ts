@@ -1,7 +1,10 @@
 import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
 
+/**
+ * Signup payload: full registration of a new user account.
+ */
 export class SignupDTO {
-  @IsEmail()
+  @IsEmail() // must be a valid email address
   @IsNotEmpty()
   email: string;
 
@@ -18,8 +21,11 @@ export class SignupDTO {
   lastName: string;
 }
 
+/**
+ * Login payload: only email + password are required to authenticate.
+ */
 export class LoginDTO {
-  @IsEmail()
+  @IsEmail() // must be a valid email address
   @IsNotEmpty()
   email: string;
 
